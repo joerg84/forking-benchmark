@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <memory>
 
 using std::cerr;
 using std::cout;
