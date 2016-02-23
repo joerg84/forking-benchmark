@@ -13,19 +13,18 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-const int CACHE_LINE_SIZE_BYTES = 64;
-
 int main(int argc, char* argv[]) {
 
   // Check and read parameters.
-  if (argc < 4) {
-    cerr << "Usage: " << argv[0] << " numberForks" << " memSizeMB" " OverwritePercentage"<< std::endl;
+  if (argc < 5) {
+    cerr << "Usage: " << argv[0] << " numberForks memSizeMB overwritePercentage stride" << std::endl;
     return EXIT_FAILURE;
   }
 
   int numberForks = atoi(argv[1]);
   int memSize =  atoi(argv[2]) * 1024 * 1024;
   double percentageWritten = atoi(argv[3])/100.0;
+  int stride = atoi(argv[4]);
 
   if (percentageWritten > 1.0) {
     cerr << "OverwritePercentage should be less than 100;"<< std::endl;
@@ -85,9 +84,9 @@ int main(int argc, char* argv[]) {
       assert (overwriteMem <= memSize);
 
       // Write one page per cache line.
-      unsigned totalNumberCacheLines = overwriteMem / CACHE_LINE_SIZE_BYTES;
+      unsigned totalNumberCacheLines = overwriteMem / stride;
       for (unsigned cacheLine = 0; cacheLine < totalNumberCacheLines; ++cacheLine) {
-        unsigned position = cacheLine * CACHE_LINE_SIZE_BYTES;
+        unsigned position = cacheLine * stride;
         mem[position] ='b';
       }
 
@@ -103,9 +102,9 @@ int main(int argc, char* argv[]) {
     int overwriteMem = memSize * percentageWritten;
     assert (overwriteMem <= memSize);
 
-    unsigned totalNumberCacheLines = overwriteMem / CACHE_LINE_SIZE_BYTES;
+    unsigned totalNumberCacheLines = overwriteMem / stride;
     for (unsigned cacheLine = 0; cacheLine < totalNumberCacheLines; ++cacheLine) {
-        unsigned position = cacheLine * CACHE_LINE_SIZE_BYTES;
+        unsigned position = cacheLine * stride;
         mem[position] ='b';
       }
   }
@@ -120,7 +119,7 @@ int main(int argc, char* argv[]) {
 
   // Output in format processable by gnuplot.
   std::cout << std::setprecision(15) << numberForks << " "<< atoi(argv[2]) << " " << percentageWritten << " "
-            << t1 << " " << min_pagefaults << " " << mem[0] << " " << mem[memSize-1] << std::endl;
+            << t1 << " " << min_pagefaults << " " << stride << " " << mem[0] << " " << mem[memSize-1] << std::endl;
 
   return EXIT_SUCCESS;
 }
