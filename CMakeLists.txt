@@ -19,6 +19,8 @@ SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_OUTPUT_DIR})
 
 FILE(COPY scripts/run_test.py DESTINATION scripts)
 FILE(COPY scripts/graph.plot DESTINATION scripts)
+FILE(COPY scripts/run_clone_test.py DESTINATION scripts)
+FILE(COPY scripts/clone_graph.plot DESTINATION scripts)
 
 ENABLE_TESTING()
 ADD_SUBDIRECTORY(src)

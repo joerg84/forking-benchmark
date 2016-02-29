@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <memory>
 #include <functional>
+#include <sys/wait.h>
 
 using std::cerr;
 using std::cout;
@@ -20,13 +21,12 @@ using std::endl;
 using namespace std::placeholders;
 
 static int              /* Start function for cloned child */
-childFunc(void *arg, int pipes[2])
+childFunc(void*, int pipes[2])
 {
   // Goal: wait for parent signal end then quit.
   if (setsid() == -1) {
     errExit("Failed to put child in a new session");
   }
-
 
   // close other pipe
   close(pipes[1]);
@@ -34,7 +34,7 @@ childFunc(void *arg, int pipes[2])
   // Block until parent is done.
   char buf;
   read(pipes[0], &buf, 1);
-  close(pipes[0]);
+
   return EXIT_SUCCESS;
 }
 
@@ -102,46 +102,34 @@ int main(int argc, char* argv[]) {
 
     std::function<int(void*)>  childF  =
          bind(childFunc, _1, pipefd);
-    pid_t pid = clone(childMain, stackTop, CLONE_VM, (void *) &childF);
+    pid_t pid = clone(childMain, stackTop, CLONE_VM | SIGCHLD, (void *) &childF);
 
     if (pid < 0) {
       cerr << "Fork failed."<< std::endl;
       return EXIT_FAILURE;
     }
-    // Child process
-    if (pid == 0) {
-      // Goal: wait for parent signal end then quit.
 
-      // close other pipe
-      close(pipefd[1]);
+    // Goal we are touching percentenageWritten memory and then signal child.
 
-      // Block until parent is done.
-      char buf;
-      read(pipefd[0], &buf, 1);
-      close(pipefd[0]);
-      return EXIT_SUCCESS;
+    // close other pipe
+    close(pipefd[0]);
+
+    int overwriteMem = memSize * percentageWritten;
+    assert (overwriteMem <= memSize);
+
+    // Write one page per cache line.
+    unsigned totalNumberCacheLines = overwriteMem / stride;
+    for (unsigned cacheLine = 0; cacheLine < totalNumberCacheLines; ++cacheLine) {
+      unsigned position = cacheLine * stride;
+      mem[position] ='b';
     }
-    // Parent process
-    else {
-      // Goal we are touching percentenageWritten memory and then signal child.
 
-      // close other pipe
-      close(pipefd[0]);
+    // Signal child process to quit.
+    char message {'a'};
+    write(pipefd[1], &message, 1);
 
-      int overwriteMem = memSize * percentageWritten;
-      assert (overwriteMem <= memSize);
-
-      // Write one page per cache line.
-      unsigned totalNumberCacheLines = overwriteMem / stride;
-      for (unsigned cacheLine = 0; cacheLine < totalNumberCacheLines; ++cacheLine) {
-        unsigned position = cacheLine * stride;
-        mem[position] ='b';
-      }
-
-      // Signal child process to quit.
-      char message {'a'};
-      write(pipefd[1], &message, 1);
-    }
+    int status;
+    waitpid(pid, &status, 0);
 
   }
 
@@ -167,7 +155,7 @@ int main(int argc, char* argv[]) {
 
   // Output in format processable by gnuplot.
   std::cout << std::setprecision(15) << numberForks << " "<< atoi(argv[2]) << " " << percentageWritten << " "
-            << t1 << " " << min_pagefaults << " " << stride << " " << mem[0] << " " << mem[memSize-1] << std::endl;
+           << t1 << " " << min_pagefaults << " " << stride << " " << mem[0] << " " << mem[memSize-1] << std::endl;
 
   return EXIT_SUCCESS;
 }
